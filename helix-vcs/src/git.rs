@@ -1,6 +1,7 @@
 use anyhow::{bail, Context, Result};
 use arc_swap::ArcSwap;
 use gix::filter::plumbing::driver::apply::Delay;
+use std::collections::HashSet;
 use std::io::Read;
 use std::path::Path;
 use std::sync::Arc;
@@ -13,7 +14,7 @@ use gix::sec::trust::DefaultForLevel;
 use gix::status::{
     index_worktree::Item,
     plumbing::index_as_worktree::{Change, EntryStatus},
-    UntrackedFiles,
+    Item as StatusItem, UntrackedFiles,
 };
 use gix::{Commit, ObjectId, Repository, ThreadSafeRepository};
 
@@ -169,11 +170,24 @@ fn status(repo: &Repository, f: impl Fn(Result<FileChange>) -> bool) -> Result<(
     // No filtering based on path
     let empty_patterns = vec![];
 
-    let status_iter = status_platform.into_index_worktree_iter(empty_patterns)?;
+    let status_iter = status_platform.into_iter(empty_patterns)?;
+    let mut seen = HashSet::new();
+    let mut staged = Vec::new();
 
     for item in status_iter {
-        let Ok(item) = item.map_err(|err| f(Err(err.into()))) else {
-            continue;
+        let item = match item {
+            Ok(StatusItem::IndexWorktree(item)) => item,
+            Ok(StatusItem::TreeIndex(change)) => {
+                let path = work_dir.join(change.location().to_path()?);
+                staged.push(FileChange::Staged { path });
+                continue;
+            }
+            Err(err) => {
+                if !f(Err(err.into())) {
+                    return Ok(());
+                }
+                continue;
+            }
         };
         let change = match item {
             Item::Modification {
@@ -211,7 +225,16 @@ fn status(repo: &Repository, f: impl Fn(Result<FileChange>) -> bool) -> Result<(
             },
             _ => continue,
         };
+        seen.insert(change.path().to_path_buf());
         if !f(Ok(change)) {
+            return Ok(());
+        }
+    }
+
+    // The iterator interleaves staged and unstaged changes. Emit staged changes last so
+    // each path appears once, preferring its working-tree status (including conflicts).
+    for change in staged {
+        if seen.insert(change.path().to_path_buf()) && !f(Ok(change)) {
             break;
         }
     }

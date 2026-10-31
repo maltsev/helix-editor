@@ -1,8 +1,8 @@
-use std::{fs::File, io::Write, path::Path, process::Command};
+use std::{cell::RefCell, fs, fs::File, io::Write, path::Path, process::Command};
 
 use tempfile::TempDir;
 
-use crate::git;
+use crate::{git, FileChange};
 
 fn exec_git_cmd(args: &str, git_dir: &Path) {
     let res = Command::new("git")
@@ -46,6 +46,115 @@ fn empty_git_repo() -> TempDir {
     exec_git_cmd("config user.email test@helix.org", tmp.path());
     exec_git_cmd("config user.name helix-test", tmp.path());
     tmp
+}
+
+fn changed_files(repo: &Path) -> Vec<FileChange> {
+    let changes = RefCell::new(Vec::new());
+    git::for_each_changed_file(repo, true, |change| {
+        changes.borrow_mut().push(change.unwrap());
+        true
+    })
+    .unwrap();
+    changes.into_inner()
+}
+
+#[test]
+fn staged_changes() {
+    let temp_git = empty_git_repo();
+    let repo = temp_git.path().canonicalize().unwrap();
+    for name in [
+        "modified.txt",
+        "deleted.txt",
+        "renamed.txt",
+        "unchanged.txt",
+    ] {
+        fs::write(repo.join(name), name).unwrap();
+    }
+    create_commit(&repo, true);
+
+    fs::write(repo.join("added.txt"), "new file").unwrap();
+    fs::write(repo.join("modified.txt"), "modified contents").unwrap();
+    fs::remove_file(repo.join("deleted.txt")).unwrap();
+    fs::rename(repo.join("renamed.txt"), repo.join("destination.txt")).unwrap();
+    exec_git_cmd("add -A", &repo);
+
+    let changes = changed_files(&repo);
+    assert_eq!(changes.len(), 4);
+    for name in [
+        "added.txt",
+        "modified.txt",
+        "deleted.txt",
+        "destination.txt",
+    ] {
+        assert!(
+            changes.iter().any(|change| {
+                matches!(change, FileChange::Staged { path } if *path == repo.join(name))
+            }),
+            "missing staged file: {name}"
+        );
+    }
+}
+
+#[test]
+fn staged_changes_before_first_commit() {
+    let temp_git = empty_git_repo();
+    let repo = temp_git.path().canonicalize().unwrap();
+    fs::write(repo.join("added.txt"), "new file").unwrap();
+    exec_git_cmd("add added.txt", &repo);
+
+    let changes = changed_files(&repo);
+    assert_eq!(changes.len(), 1);
+    assert!(matches!(&changes[0], FileChange::Staged { path } if *path == repo.join("added.txt")));
+}
+
+#[test]
+fn staged_and_unstaged_changes() {
+    let temp_git = empty_git_repo();
+    let repo = temp_git.path().canonicalize().unwrap();
+    for name in [
+        "staged.txt",
+        "unstaged.txt",
+        "partial.txt",
+        "deleted.txt",
+        "renamed.txt",
+    ] {
+        fs::write(repo.join(name), name).unwrap();
+    }
+    create_commit(&repo, true);
+
+    fs::write(repo.join("staged.txt"), "staged contents").unwrap();
+    fs::write(repo.join("partial.txt"), "staged contents").unwrap();
+    exec_git_cmd("add staged.txt partial.txt", &repo);
+    fs::write(repo.join("partial.txt"), "additional unstaged changes").unwrap();
+    fs::write(repo.join("unstaged.txt"), "unstaged contents").unwrap();
+    fs::write(repo.join("untracked.txt"), "untracked contents").unwrap();
+    fs::write(repo.join("intent.txt"), "intent to add").unwrap();
+    exec_git_cmd("add --intent-to-add intent.txt", &repo);
+    fs::remove_file(repo.join("deleted.txt")).unwrap();
+    fs::rename(repo.join("renamed.txt"), repo.join("destination.txt")).unwrap();
+
+    let changes = changed_files(&repo);
+    assert_eq!(changes.len(), 7);
+    assert!(changes.iter().any(|change| {
+        matches!(change, FileChange::Staged { path } if *path == repo.join("staged.txt"))
+    }));
+    for name in ["partial.txt", "unstaged.txt"] {
+        assert!(changes.iter().any(|change| {
+            matches!(change, FileChange::Modified { path } if *path == repo.join(name))
+        }));
+    }
+    for name in ["untracked.txt", "intent.txt"] {
+        assert!(changes.iter().any(|change| {
+            matches!(change, FileChange::Untracked { path } if *path == repo.join(name))
+        }));
+    }
+    assert!(changes.iter().any(|change| {
+        matches!(change, FileChange::Deleted { path } if *path == repo.join("deleted.txt"))
+    }));
+    assert!(changes.iter().any(|change| {
+        matches!(change, FileChange::Renamed { from_path, to_path }
+            if *from_path == repo.join("renamed.txt") && *to_path == repo.join("destination.txt"))
+    }));
 }
 
 #[test]

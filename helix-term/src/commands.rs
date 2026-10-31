@@ -3506,6 +3506,7 @@ fn changed_file_picker(cx: &mut Context) {
         PickerColumn::new("change", |change: &FileChange, data: &FileChangeData| {
             match change {
                 FileChange::Untracked { .. } => Span::styled("+ untracked", data.style_untracked),
+                FileChange::Staged { .. } => Span::styled("+ staged", data.style_untracked),
                 FileChange::Modified { .. } => Span::styled("~ modified", data.style_modified),
                 FileChange::Conflict { .. } => Span::styled("x conflict", data.style_conflict),
                 FileChange::Deleted { .. } => Span::styled("- deleted", data.style_deleted),
@@ -3522,6 +3523,7 @@ fn changed_file_picker(cx: &mut Context) {
             };
             match change {
                 FileChange::Untracked { path } => display_path(path),
+                FileChange::Staged { path } => display_path(path),
                 FileChange::Modified { path } => display_path(path),
                 FileChange::Conflict { path } => display_path(path),
                 FileChange::Deleted { path } => display_path(path),
