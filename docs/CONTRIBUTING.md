@@ -61,10 +61,10 @@ the default value (e.g. to `10240` from `256`) by running `ulimit -n 10240`.
 
 ## Minimum Stable Rust Version (MSRV) Policy
 
-Helix keeps an intentionally low MSRV for the sake of easy building and packaging
-downstream. We follow [Firefox's MSRV policy]. Once Firefox's MSRV increases we
-may bump ours as well, but be sure to check that popular distributions like Ubuntu
-package the new MSRV version. When increasing the MSRV, update these three places:
+This fork keeps its development toolchain and MSRV in sync. Use the version pinned
+in `rust-toolchain.toml` when building and testing. Upstream Helix follows
+[Firefox's MSRV policy] to ease downstream packaging; this fork may use a newer
+stable Rust release. When increasing the MSRV, update these three places:
 
 * the `workspace.package.rust-version` key in `Cargo.toml` in the repository root
 * the `env.MSRV` key at the top of `.github/workflows/build.yml`

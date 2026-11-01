@@ -29,7 +29,7 @@ log = "0.4"
 # TODO: these two should be on !wasm32 only
 
 # cloning/compiling tree-sitter grammars
-cc = { version = "1" }
+cc = { version = "1.10" }
 threadpool = { version = "1.0" }
 tempfile.workspace = true
 

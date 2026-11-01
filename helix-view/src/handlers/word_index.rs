@@ -167,7 +167,7 @@ const MAX_WORD_LEN: usize = 50;
 /// Number of words to index between checks of the cancellation handle.
 const CANCEL_CHECK_INTERVAL: usize = 4096;
 
-type Word = kstring::KString;
+type Word = kstring::KStringBase<Box<str>>;
 
 #[derive(Debug, Default)]
 struct WordIndexInner {

@@ -400,10 +400,8 @@ impl VendoredGrammar {
     /// Creates directory and sets it up as a git repo, with remote set correctly.
     fn init(&self, remote: &str, object_format: GitObjectFormat) -> Result<()> {
         // Create the grammar directory if needed.
-        fs::create_dir_all(&self.dir).context(format!(
-            "Could not create grammar directory {:?}",
-            &self.dir
-        ))?;
+        fs::create_dir_all(&self.dir)
+            .context(format!("Could not create grammar directory {:?}", self.dir))?;
 
         // Ensure directory is git initialized.
         if !self.dir.join(".git").exists() {
@@ -597,7 +595,7 @@ fn build_tree_sitter_library(
     let compiler = config.get_compiler();
     let mut command = Command::new(compiler.path());
     command.current_dir(src_path);
-    for (key, value) in compiler.env() {
+    for (key, value) in compiler.get_envs() {
         command.env(key, value);
     }
 
@@ -617,12 +615,12 @@ fn build_tree_sitter_library(
             } else {
                 let mut cpp_command = Command::new(compiler.path());
                 cpp_command.current_dir(src_path);
-                for (key, value) in compiler.env() {
+                for (key, value) in compiler.get_envs() {
                     cpp_command.env(key, value);
                 }
                 cpp_command.args(compiler.args());
                 let object_file =
-                    library_path.with_file_name(format!("{}_scanner.obj", &grammar.grammar_id));
+                    library_path.with_file_name(format!("{}_scanner.obj", grammar.grammar_id));
                 cpp_command
                     .args(["/nologo", "/LD", "/I"])
                     .arg(header_path)
@@ -669,12 +667,12 @@ fn build_tree_sitter_library(
             } else {
                 let mut cpp_command = Command::new(compiler.path());
                 cpp_command.current_dir(src_path);
-                for (key, value) in compiler.env() {
+                for (key, value) in compiler.get_envs() {
                     cpp_command.env(key, value);
                 }
                 cpp_command.args(compiler.args());
                 let object_file =
-                    library_path.with_file_name(format!("{}_scanner.o", &grammar.grammar_id));
+                    library_path.with_file_name(format!("{}_scanner.o", grammar.grammar_id));
 
                 #[cfg(not(windows))]
                 cpp_command.arg("-fPIC");

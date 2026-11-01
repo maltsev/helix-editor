@@ -195,6 +195,33 @@ fn modified_file() {
     );
 }
 
+#[test]
+fn diff_base_respects_workspace_trust() {
+    let temp_git = empty_git_repo();
+    let file = temp_git.path().join("café.txt");
+    let contents = b"foo   \n\n\n";
+    fs::write(&file, contents).unwrap();
+    fs::write(
+        temp_git.path().join(".gitattributes"),
+        "*.txt -text filter=helix-test\n",
+    )
+    .unwrap();
+    create_commit(temp_git.path(), true);
+
+    let mut config = fs::OpenOptions::new()
+        .append(true)
+        .open(temp_git.path().join(".git/config"))
+        .unwrap();
+    writeln!(
+        config,
+        "[filter \"helix-test\"]\n\tsmudge = git stripspace\n\trequired = true"
+    )
+    .unwrap();
+
+    assert_eq!(git::get_diff_base(&file, false).unwrap(), contents);
+    assert_eq!(git::get_diff_base(&file, true).unwrap(), b"foo\n");
+}
+
 /// Test that `get_file_head` does not return content for a directory.
 /// This is important to correctly cover cases where a directory is removed and replaced by a file.
 /// If the contents of the directory object were returned a diff between a path and the directory children would be produced.
