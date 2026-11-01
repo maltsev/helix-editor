@@ -75,6 +75,18 @@ executable). When Cargo is provided by rustup, it uses the pinned Rust toolchain
 Cargo also fetches and builds the tree-sitter grammars by default. Only the
 installation commands use `sudo`; compilation runs as your current user.
 
+If you use [mise](https://mise.jdx.dev/lang/rust.html), enable reading the existing
+Rust toolchain file and install its toolchain and components:
+
+```sh
+mise settings add idiomatic_version_file_enable_tools rust
+mise install rust
+mise exec -- make install
+```
+
+This uses `rust-toolchain.toml` as the version source. With mise activated in your
+shell, you can also run `make install` directly.
+
 Use `make link` to create a symlink to `target/release/hx` instead, or `make build`
 to build without installing. Both installation targets replace an existing `hx`.
 For a user-owned installation directory, override the prefix and disable `sudo`:
