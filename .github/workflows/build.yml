@@ -5,8 +5,6 @@ on:
     branches:
       - master
   merge_group:
-  schedule:
-    - cron: "00 01 * * *"
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.head_ref || github.run_id }}
@@ -24,7 +22,6 @@ jobs:
   check:
     name: Check (msrv)
     runs-on: ubuntu-latest
-    if: github.repository == 'helix-editor/helix' || github.event_name != 'schedule'
     steps:
       - name: Checkout sources
         uses: actions/checkout@v7
@@ -40,7 +37,6 @@ jobs:
   test:
     name: Test Suite
     runs-on: ${{ matrix.os }}
-    if: github.repository == 'helix-editor/helix' || github.event_name != 'schedule'
     timeout-minutes: 30
     env:
       RUST_BACKTRACE: 1
@@ -69,7 +65,6 @@ jobs:
   lints:
     name: Lints
     runs-on: ubuntu-latest
-    if: github.repository == 'helix-editor/helix' || github.event_name != 'schedule'
     steps:
       - name: Checkout sources
         uses: actions/checkout@v7
@@ -94,7 +89,6 @@ jobs:
   docs:
     name: Grammar Lint
     runs-on: ubuntu-latest
-    if: github.repository == 'helix-editor/helix' || github.event_name != 'schedule'
     steps:
       - name: Checkout sources
         uses: actions/checkout@v7
