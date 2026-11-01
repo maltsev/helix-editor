@@ -162,14 +162,14 @@ Workspace trust also gates how Helix opens git repositories. Untrusted
 workspaces are opened in [gix](https://github.com/Byron/gitoxide)'s
 `Trust::Reduced` mode; trusted workspaces use `Trust::Full`.
 
-Under `Trust::Reduced`, gix still runs the full filter pipeline (so
-built-in conversions like `core.autocrlf` keep working) but ignores
-configuration coming from the untrusted, repository-local `.git/config`.
+In untrusted workspaces, Helix still runs the full filter pipeline (so
+built-in conversions like `core.autocrlf` keep working) but excludes
+repository-local configuration, including files it includes, from sensitive
+lookups.
 That means `filter.*.clean` / `filter.*.smudge` drivers and similar
 keys that would otherwise execute external programs are dropped until you
 trust the workspace.
 
-Helix forces this trust level explicitly rather than letting gix infer it
-from `.git` directory ownership — a malicious `.git/config` in a directory
-you happen to own is still treated as untrusted until you run
-`:workspace-trust`.
+Helix enforces this restriction independently of `.git` directory ownership
+and Git's `safe.directory` setting. A repository you own or have marked safe
+in Git is still treated as untrusted until you run `:workspace-trust`.

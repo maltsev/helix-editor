@@ -222,6 +222,46 @@ fn diff_base_respects_workspace_trust() {
     assert_eq!(git::get_diff_base(&file, true).unwrap(), b"foo\n");
 }
 
+#[test]
+fn diff_base_preserves_builtin_filters_without_workspace_trust() {
+    let temp_git = empty_git_repo();
+    let file = temp_git.path().join("café.txt");
+    fs::write(&file, b"foo\nbar\n").unwrap();
+    create_commit(temp_git.path(), true);
+    exec_git_cmd("config core.autocrlf true", temp_git.path());
+
+    for trust_full in [false, true] {
+        assert_eq!(
+            git::get_diff_base(&file, trust_full).unwrap(),
+            b"foo\r\nbar\r\n"
+        );
+    }
+}
+
+#[test]
+fn diff_base_respects_workspace_trust_with_safe_directory() {
+    let temp = tempfile::tempdir().unwrap();
+    let config = temp.path().join("gitconfig");
+    fs::write(&config, "[safe]\n\tdirectory = *\n").unwrap();
+
+    // Isolate the global configuration override from tests running in parallel.
+    let output = Command::new(std::env::current_exe().unwrap())
+        .args([
+            "--exact",
+            "git::test::diff_base_respects_workspace_trust",
+            "--nocapture",
+        ])
+        .env("GIT_CONFIG_GLOBAL", config)
+        .output()
+        .unwrap();
+    assert!(
+        output.status.success(),
+        "{}\n{}",
+        String::from_utf8_lossy(&output.stdout),
+        String::from_utf8_lossy(&output.stderr)
+    );
+}
+
 /// Test that `get_file_head` does not return content for a directory.
 /// This is important to correctly cover cases where a directory is removed and replaced by a file.
 /// If the contents of the directory object were returned a diff between a path and the directory children would be produced.
