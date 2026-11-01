@@ -1,9 +1,7 @@
 # Publish the Nix flake outputs to Cachix
 name: Cachix
 on:
-  push:
-    branches:
-      - master
+  workflow_dispatch:
 
 permissions:
   contents: read
