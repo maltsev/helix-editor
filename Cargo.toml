@@ -23,6 +23,7 @@ default-members = [
 
 [profile.release]
 lto = "thin"
+strip = true
 
 [profile.opt]
 inherits = "release"

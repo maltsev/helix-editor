@@ -9,7 +9,7 @@ BUILD_DIR := $(if $(filter /%,$(CARGO_TARGET_DIR)),$(CARGO_TARGET_DIR),$(CURDIR)
 
 # Use the optimized release profile and this checkout's runtime files.
 build:
-	HELIX_DEFAULT_RUNTIME="$(CURDIR)/runtime" $(CARGO) build --profile opt --locked --package helix-term --bin hx --target-dir "$(CARGO_TARGET_DIR)"
+	HELIX_DEFAULT_RUNTIME="$(CURDIR)/runtime" $(CARGO) build --release --locked --package helix-term --bin hx --target-dir "$(CARGO_TARGET_DIR)"
 
 # Build a local debug executable, reusing this checkout's compiled grammars.
 dev:
@@ -19,8 +19,8 @@ dev:
 install: build
 	$(SUDO) install -d "$(BINDIR)"
 	if test -L "$(BINDIR)/hx"; then $(SUDO) rm -f "$(BINDIR)/hx"; fi
-	$(SUDO) install -m 755 "$(CARGO_TARGET_DIR)/opt/hx" "$(BINDIR)/hx"
+	$(SUDO) install -m 755 "$(CARGO_TARGET_DIR)/release/hx" "$(BINDIR)/hx"
 
 link: build
 	$(SUDO) install -d "$(BINDIR)"
-	$(SUDO) ln -sfn "$(BUILD_DIR)/opt/hx" "$(BINDIR)/hx"
+	$(SUDO) ln -sfn "$(BUILD_DIR)/release/hx" "$(BINDIR)/hx"

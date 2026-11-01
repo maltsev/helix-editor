@@ -70,12 +70,12 @@ From the repository root, build and copy the optimized executable to
 make install
 ```
 
-This uses the pinned Rust toolchain, locked dependencies, and the `opt` profile
-(full LTO, one codegen unit, and a stripped executable). Cargo also fetches and
-builds the tree-sitter grammars by default. Only the installation commands use
-`sudo`; compilation runs as your current user.
+This uses locked dependencies and the `release` profile (ThinLTO and a stripped
+executable). When Cargo is provided by rustup, it uses the pinned Rust toolchain.
+Cargo also fetches and builds the tree-sitter grammars by default. Only the
+installation commands use `sudo`; compilation runs as your current user.
 
-Use `make link` to create a symlink to `target/opt/hx` instead, or `make build`
+Use `make link` to create a symlink to `target/release/hx` instead, or `make build`
 to build without installing. Both installation targets replace an existing `hx`.
 For a user-owned installation directory, override the prefix and disable `sudo`:
 
@@ -96,7 +96,7 @@ make dev
 ```
 
 This uses Cargo's incremental `dev` profile without LTO and keeps the executable
-in `target/debug/hx`, alongside the production build in `target/opt/hx`.
+in `target/debug/hx`, alongside the production build in `target/release/hx`.
 `make dev` only builds; `make install` and `make link` use the production build.
 The initial debug build still compiles dependencies; subsequent builds reuse
 them. Debug builds trade runtime performance for faster compilation.
@@ -110,6 +110,15 @@ run `make build CARGO="cargo -vv"` to see what Cargo is rebuilding. A
 `Blocking waiting for file lock` message means another Cargo build is using the
 same output directory. The debug and optimized profiles have separate output
 directories, so they can compile concurrently.
+
+The `opt` profile remains available for performance comparisons with full LTO
+and one codegen unit, at the cost of longer builds:
+
+```sh
+HELIX_DEFAULT_RUNTIME="$PWD/runtime" cargo build --profile opt --locked
+```
+
+This produces `target/opt/hx` without changing the installed executable.
 
 ### Configuring Helix's runtime files
 
