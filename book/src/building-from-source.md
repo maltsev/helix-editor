@@ -1,5 +1,6 @@
 ## Building from source
 
+- [Installing this fork with Make (Linux and macOS)](#installing-this-fork-with-make-linux-and-macos)
 - [Configuring Helix's runtime files](#configuring-helixs-runtime-files)
   - [Linux and macOS](#linux-and-macos)
   - [Windows](#windows)
@@ -59,6 +60,33 @@ RUSTFLAGS="-C target-feature=-crt-static"
 > [details below](#multiple-runtime-directories)).
 
 > 💡 If you only want to build _some_ grammars, see [`use-grammars`](./languages.md#choosing-grammars)
+
+### Installing this fork with Make (Linux and macOS)
+
+From the repository root, build and copy the optimized executable to
+`/usr/local/bin/hx`:
+
+```sh
+make install
+```
+
+This uses the pinned Rust toolchain, locked dependencies, and the `opt` profile
+(full LTO, one codegen unit, and a stripped executable). Cargo also fetches and
+builds the tree-sitter grammars by default. Only the installation commands use
+`sudo`; compilation runs as your current user.
+
+Use `make link` to create a symlink to `target/opt/hx` instead, or `make build`
+to build without installing. Both installation targets replace an existing `hx`.
+For a user-owned installation directory, override the prefix and disable `sudo`:
+
+```sh
+make install PREFIX="$HOME/.local" SUDO=
+```
+
+The executable uses this checkout's absolute `runtime/` path as its fallback
+runtime directory, so keep the checkout in place after installation. A symlink
+installation also requires the build output to remain in place. No
+`HELIX_RUNTIME` setting is needed. Run `hx --health` to check the installation.
 
 ### Configuring Helix's runtime files
 
