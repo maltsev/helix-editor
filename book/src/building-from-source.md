@@ -88,6 +88,29 @@ runtime directory, so keep the checkout in place after installation. A symlink
 installation also requires the build output to remain in place. No
 `HELIX_RUNTIME` setting is needed. Run `hx --health` to check the installation.
 
+For faster development builds, build a local debug executable and run it directly:
+
+```sh
+make dev
+./target/debug/hx README.md
+```
+
+This uses Cargo's incremental `dev` profile without LTO and keeps the executable
+in `target/debug/hx`, alongside the production build in `target/opt/hx`.
+`make dev` only builds; `make install` and `make link` use the production build.
+The initial debug build still compiles dependencies; subsequent builds reuse
+them. Debug builds trade runtime performance for faster compilation.
+The Makefile skips automatic grammar fetching and compilation for debug builds,
+reusing the grammars in this checkout's `runtime/grammars/`. Run `make build`
+once to prepare grammars before using the debug build on a fresh checkout, and
+again after changing grammar definitions or sources.
+
+An unchanged `make install` should reuse the existing build. If it remains slow,
+run `make build CARGO="cargo -vv"` to see what Cargo is rebuilding. A
+`Blocking waiting for file lock` message means another Cargo build is using the
+same output directory. The debug and optimized profiles have separate output
+directories, so they can compile concurrently.
+
 ### Configuring Helix's runtime files
 
 #### Linux and macOS
