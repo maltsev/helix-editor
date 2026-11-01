@@ -61,7 +61,8 @@ fn changed_files(repo: &Path) -> Vec<FileChange> {
 #[test]
 fn staged_changes() {
     let temp_git = empty_git_repo();
-    let repo = temp_git.path().canonicalize().unwrap();
+    // Resolve symlinks without adding the Windows verbatim prefix, which gix strips.
+    let repo = gix::path::realpath(temp_git.path()).unwrap();
     for name in [
         "modified.txt",
         "deleted.txt",
@@ -98,7 +99,7 @@ fn staged_changes() {
 #[test]
 fn staged_changes_before_first_commit() {
     let temp_git = empty_git_repo();
-    let repo = temp_git.path().canonicalize().unwrap();
+    let repo = gix::path::realpath(temp_git.path()).unwrap();
     fs::write(repo.join("added.txt"), "new file").unwrap();
     exec_git_cmd("add added.txt", &repo);
 
@@ -110,7 +111,7 @@ fn staged_changes_before_first_commit() {
 #[test]
 fn staged_and_unstaged_changes() {
     let temp_git = empty_git_repo();
-    let repo = temp_git.path().canonicalize().unwrap();
+    let repo = gix::path::realpath(temp_git.path()).unwrap();
     for name in [
         "staged.txt",
         "unstaged.txt",
