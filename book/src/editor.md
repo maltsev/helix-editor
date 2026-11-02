@@ -111,7 +111,6 @@ Statusline elements can be defined as follows:
 left = ["mode", "spinner"]
 center = ["file-name"]
 right = ["diagnostics", "selections", "position", "file-encoding", "file-line-ending", "file-type"]
-separator = "│"
 mode.normal = "NORMAL"
 mode.insert = "INSERT"
 mode.select = "SELECT"
@@ -125,7 +124,6 @@ The `[editor.statusline]` key takes the following sub-keys:
 | `left`        | A list of elements aligned to the left of the statusline | `["mode", "spinner", "file-name", "read-only-indicator", "file-modification-indicator"]` |
 | `center`      | A list of elements aligned to the middle of the statusline | `[]` |
 | `right`       | A list of elements aligned to the right of the statusline | `["diagnostics", "selections", "register", "position", "file-encoding"]` |
-| `separator`   | The character used to separate elements in the statusline | `"│"` |
 | `mode.normal` | The text shown in the `mode` element for normal mode | `"NOR"` |
 | `mode.insert` | The text shown in the `mode` element for insert mode | `"INS"` |
 | `mode.select` | The text shown in the `mode` element for select mode | `"SEL"` |
@@ -155,7 +153,7 @@ The following statusline elements can be configured:
 | `primary-selection-length` | The number of characters currently in primary selection |
 | `position` | The cursor position |
 | `position-percentage` | The cursor position as a percentage of the total number of lines |
-| `separator` | The string defined in `editor.statusline.separator` (defaults to `"│"`) |
+| `separator` | The string defined in `icons.ui.statusline.separator` (defaults to `"│"`) |
 | `spacer` | Inserts a space between elements (multiple/contiguous spacers may be specified) |
 | `version-control` | The current branch name or detached commit hash of the opened workspace |
 | `register` | The current selected register |
@@ -336,7 +334,6 @@ Options for rendering whitespace with visible characters. Use `:set whitespace.r
 | Key | Description | Default |
 |-----|-------------|---------|
 | `render` | Whether to render whitespace. May either be `all` or `none`, or a table with sub-keys `space`, `nbsp`, `nnbsp`, `tab`, and `newline` | `"none"` |
-| `characters` | Literal characters to use when rendering whitespace. Sub-keys may be any of `tab`, `space`, `nbsp`, `nnbsp`, `newline` or `tabpad` | See example below |
 
 Example
 
@@ -351,7 +348,7 @@ nbsp = "none"
 nnbsp = "none"
 newline = "none"
 
-[editor.whitespace.characters]
+[icons.ui.virtual]
 space = "·"
 nbsp = "⍽"
 nnbsp = "␣"
@@ -367,7 +364,6 @@ Options for rendering vertical indent guides.
 | Key           | Description                                             | Default |
 | ---           | ---                                                     | ---     |
 | `render`      | Whether to render indent guides                         | `false` |
-| `character`   | Literal character to use for rendering the indent guide | `"│"`   |
 | `skip-levels` | Number of indent levels to skip                         | `0`     |
 
 Example:
@@ -375,8 +371,10 @@ Example:
 ```toml
 [editor.indent-guides]
 render = true
-character = "╎" # Some characters that work well: "▏", "┆", "┊", "⸽"
 skip-levels = 1
+
+[icons.ui.virtual]
+indentation = "╎" # Some characters that work well: "▏", "┆", "┊", "⸽"
 ```
 
 ### `[editor.gutters]` Section
@@ -444,14 +442,15 @@ There are currently no options for this section.
 
 ### `[editor.soft-wrap]` Section
 
-Options for soft wrapping lines that exceed the view width:
+Options for soft wrapping lines that exceed the view width. Configure the indicator
+with `icons.ui.virtual.wrap` (default `"↪"`); a language-specific
+`soft-wrap.wrap-indicator` in `languages.toml` takes precedence:
 
 | Key                  | Description                                                  | Default |
 | ---                  | ---                                                          | ---     |
 | `enable`             | Whether soft wrapping is enabled.                            | `false` |
 | `max-wrap`           | Maximum free space left at the end of the line.              | `20`    |
 | `max-indent-retain`  | Maximum indentation to carry over when soft wrapping a line. | `40`    |
-| `wrap-indicator`     | Text inserted before soft wrapped lines, highlighted with `ui.virtual.wrap` | `"↪ "`    |
 | `wrap-at-text-width` | Soft wrap at `text-width` instead of using the full viewport size. | `false` |
 
 Example:
@@ -461,7 +460,9 @@ Example:
 enable = true
 max-wrap = 25 # increase value to reduce forced mid-word wrapping
 max-indent-retain = 0
-wrap-indicator = ""  # set wrap-indicator to "" to hide it
+
+[icons.ui.virtual]
+wrap = "" # Use an empty glyph to hide the wrap indicator
 ```
 
 ### `[editor.smart-tab]` Section

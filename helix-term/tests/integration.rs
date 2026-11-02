@@ -19,6 +19,7 @@ mod test {
     mod bufferline;
     mod command_line;
     mod commands;
+    mod icons;
     mod jump_labels;
     mod movement;
     mod splits;

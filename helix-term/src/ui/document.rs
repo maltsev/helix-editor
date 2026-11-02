@@ -7,8 +7,10 @@ use helix_core::syntax::{self, HighlightEvent, Highlighter, OverlayHighlights};
 use helix_core::text_annotations::TextAnnotations;
 use helix_core::{visual_offset_from_block, Position, RopeSlice};
 use helix_stdx::rope::RopeSliceExt;
+use helix_stdx::string::StackString;
 use helix_view::editor::{WhitespaceConfig, WhitespaceRenderValue};
 use helix_view::graphics::Rect;
+use helix_view::icons::ICONS;
 use helix_view::theme::Style;
 use helix_view::view::ViewPosition;
 use helix_view::{Document, Theme};
@@ -175,16 +177,19 @@ pub fn render_text(
 #[derive(Debug)]
 pub struct TextRenderer<'a> {
     surface: &'a mut Surface,
-    pub text_style: Style,
-    pub whitespace_style: Style,
-    pub indent_guide_char: String,
-    pub indent_guide_style: Style,
-    pub newline: String,
-    pub nbsp: String,
-    pub nnbsp: String,
-    pub space: String,
+
+    pub indent_guide_char: StackString,
+    pub newline: StackString,
+    pub nbsp: StackString,
+    pub nnbsp: StackString,
+    pub space: StackString,
     pub tab: String,
     pub virtual_tab: String,
+
+    pub text_style: Style,
+    pub whitespace_style: Style,
+    pub indent_guide_style: Style,
+
     pub indent_width: u16,
     pub starting_indent: usize,
     pub draw_indent_guides: bool,
@@ -205,50 +210,53 @@ impl<'a> TextRenderer<'a> {
         offset: Position,
         viewport: Rect,
     ) -> TextRenderer<'a> {
-        let editor_config = doc.config.load();
-        let WhitespaceConfig {
-            render: ws_render,
-            characters: ws_chars,
-        } = &editor_config.whitespace;
+        let config = doc.config.load();
+        let WhitespaceConfig { render } = &config.whitespace;
 
         let tab_width = doc.tab_width();
-        let tab = if ws_render.tab() == WhitespaceRenderValue::All {
-            std::iter::once(ws_chars.tab)
-                .chain(std::iter::repeat_n(ws_chars.tabpad, tab_width - 1))
-                .collect()
-        } else {
-            " ".repeat(tab_width)
-        };
+
+        let icons = ICONS.load();
+        let whitespace = icons.ui().r#virtual();
+
         let virtual_tab = " ".repeat(tab_width);
-        let newline = if ws_render.newline() == WhitespaceRenderValue::All {
-            ws_chars.newline.into()
-        } else {
-            " ".to_owned()
+        let tab = match render.tab() {
+            WhitespaceRenderValue::All => format!(
+                "{}{}",
+                whitespace.tab(),
+                whitespace
+                    .tabpad()
+                    .to_string()
+                    .repeat(tab_width.saturating_sub(1))
+            ),
+            WhitespaceRenderValue::None => virtual_tab.clone(),
         };
 
-        let space = if ws_render.space() == WhitespaceRenderValue::All {
-            ws_chars.space.into()
-        } else {
-            " ".to_owned()
+        let newline = match render.newline() {
+            WhitespaceRenderValue::None => StackString::from(" "),
+            WhitespaceRenderValue::All => whitespace.newline().glyph(),
         };
-        let nbsp = if ws_render.nbsp() == WhitespaceRenderValue::All {
-            ws_chars.nbsp.into()
-        } else {
-            " ".to_owned()
+
+        let space = match render.space() {
+            WhitespaceRenderValue::None => StackString::from(" "),
+            WhitespaceRenderValue::All => whitespace.space().glyph(),
         };
-        let nnbsp = if ws_render.nnbsp() == WhitespaceRenderValue::All {
-            ws_chars.nnbsp.into()
-        } else {
-            " ".to_owned()
+
+        let nbsp = match render.nbsp() {
+            WhitespaceRenderValue::None => StackString::from(" "),
+            WhitespaceRenderValue::All => whitespace.nbsp().glyph(),
+        };
+
+        let nnbsp = match render.nnbsp() {
+            WhitespaceRenderValue::None => StackString::from(" "),
+            WhitespaceRenderValue::All => whitespace.nnbsp().glyph(),
         };
 
         let text_style = theme.get("ui.text");
-
         let indent_width = doc.indent_style.indent_width(tab_width) as u16;
 
         TextRenderer {
             surface,
-            indent_guide_char: editor_config.indent_guides.character.into(),
+            indent_guide_char: whitespace.indentation().glyph(),
             newline,
             nbsp,
             nnbsp,
@@ -259,18 +267,19 @@ impl<'a> TextRenderer<'a> {
             indent_width,
             starting_indent: offset.col / indent_width as usize
                 + !offset.col.is_multiple_of(indent_width as usize) as usize
-                + editor_config.indent_guides.skip_levels as usize,
+                + config.indent_guides.skip_levels as usize,
             indent_guide_style: text_style.patch(
                 theme
                     .try_get("ui.virtual.indent-guide")
                     .unwrap_or_else(|| theme.get("ui.virtual.whitespace")),
             ),
             text_style,
-            draw_indent_guides: editor_config.indent_guides.render,
+            draw_indent_guides: config.indent_guides.render,
             viewport,
             offset,
         }
     }
+
     /// Draws a single `grapheme` at the current render position with a specified `style`.
     pub fn draw_decoration_grapheme(
         &mut self,
@@ -413,10 +422,11 @@ impl<'a> TextRenderer<'a> {
         ) / self.indent_width as usize;
 
         for i in self.starting_indent..end_indent {
-            let x = (self.viewport.x as usize + (i * self.indent_width as usize) - self.offset.col)
-                as u16;
+            let x = self.viewport.x + (i as u16 * self.indent_width) - self.offset.col as u16;
             let y = self.viewport.y + row;
+
             debug_assert!(self.surface.in_bounds(x, y));
+
             self.surface
                 .set_string(x, y, &self.indent_guide_char, self.indent_guide_style);
         }

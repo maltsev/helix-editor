@@ -22,11 +22,13 @@ use helix_core::{
     unicode::width::UnicodeWidthStr,
     visual_offset_from_block, Change, Position, Range, Selection, Transaction,
 };
+use helix_stdx::string::StackString;
 use helix_view::{
     annotations::diagnostics::DiagnosticFilter,
     document::{Mode, SCRATCH_BUFFER_NAME},
     editor::{CompleteAction, CursorShapeConfig},
     graphics::{Color, CursorKind, Modifier, Rect, Style},
+    icons::ICONS,
     input::{KeyEvent, MouseButton, MouseEvent, MouseEventKind},
     keyboard::{KeyCode, KeyModifiers},
     Document, DocumentId, Editor, Theme, View,
@@ -256,15 +258,16 @@ impl EditorView {
         surface: &mut Surface,
         theme: &Theme,
     ) {
-        let editor_rulers = &editor.config().rulers;
-        let ruler_theme = theme
+        let config = editor.config();
+
+        let style = theme
             .try_get("ui.virtual.ruler")
             .unwrap_or_else(|| Style::default().bg(Color::Red));
 
         let rulers = doc
             .language_config()
-            .and_then(|config| config.rulers.as_ref())
-            .unwrap_or(editor_rulers);
+            .and_then(|config| config.rulers.as_deref())
+            .unwrap_or_else(|| config.rulers.as_slice());
 
         let view_offset = doc.view_offset(view.id);
 
@@ -275,7 +278,17 @@ impl EditorView {
             .filter_map(|ruler| ruler.checked_sub(1 + view_offset.horizontal_offset as u16))
             .filter(|ruler| ruler < &viewport.width)
             .map(|ruler| viewport.clip_left(ruler).with_width(1))
-            .for_each(|area| surface.set_style(area, ruler_theme))
+            .for_each(|area| {
+                let icons = ICONS.load();
+                let ruler = icons.ui().r#virtual().ruler();
+                if ruler.is_user_overridden() && !ruler.is_empty() {
+                    for y in area.top()..area.bottom() {
+                        surface.set_stringn(area.x, y, &ruler.glyph(), 1, style);
+                    }
+                } else {
+                    surface.set_style(area, style);
+                }
+            });
     }
 
     fn viewport_byte_range(
@@ -663,24 +676,24 @@ impl EditorView {
 
     /// Render bufferline at the top
     pub fn render_bufferline(&mut self, editor: &Editor, viewport: Rect, surface: &mut Surface) {
+        let theme = editor.theme.as_ref();
+
         let scratch = PathBuf::from(SCRATCH_BUFFER_NAME); // default filename to use for scratch buffer
+
         surface.clear_with(
             viewport,
-            editor
-                .theme
+            theme
                 .try_get("ui.bufferline.background")
-                .unwrap_or_else(|| editor.theme.get("ui.statusline")),
+                .unwrap_or_else(|| theme.get("ui.statusline")),
         );
 
-        let bufferline_active = editor
-            .theme
+        let bufferline_active = theme
             .try_get("ui.bufferline.active")
-            .unwrap_or_else(|| editor.theme.get("ui.statusline.active"));
+            .unwrap_or_else(|| theme.get("ui.statusline.active"));
 
-        let bufferline_inactive = editor
-            .theme
+        let bufferline_inactive = theme
             .try_get("ui.bufferline")
-            .unwrap_or_else(|| editor.theme.get("ui.statusline.inactive"));
+            .unwrap_or_else(|| theme.get("ui.statusline.inactive"));
 
         let mut x = viewport.x;
         let current_doc = view!(editor).doc;
@@ -688,7 +701,7 @@ impl EditorView {
         self.bufferline_info.clear();
 
         for doc in editor.documents() {
-            let fname = doc
+            let name = doc
                 .path()
                 .unwrap_or(&scratch)
                 .file_name()
@@ -696,26 +709,47 @@ impl EditorView {
                 .to_str()
                 .unwrap_or_default();
 
-            let style = if current_doc == doc.id() {
+            let is_active = current_doc == doc.id();
+
+            let base = if is_active {
                 bufferline_active
             } else {
                 bufferline_inactive
             };
 
-            let text = format!(" {}{} ", fname, if doc.is_modified() { "[+]" } else { "" });
-            let used_width = viewport.x.saturating_sub(x);
-            let rem_width = surface.area.width.saturating_sub(used_width);
-
+            let icons = ICONS.load();
+            let icon = doc.path().and_then(|path| {
+                icons
+                    .fs()
+                    .file()
+                    .map(|file| file.get_with_active_style_or_default(path, theme, base))
+            });
+            let prefix = icon.map_or_else(|| StackString::from(" "), |icon| icon.glyph());
+            let prefix_style = icon.map_or(base, |icon| base.patch(icon.style()));
+            let modified = if doc.is_modified() {
+                icons.ui().indicator().modified().glyph()
+            } else {
+                StackString::new()
+            };
             let start_x = x;
-            x = surface
-                .set_stringn(x, viewport.y, &text, rem_width as usize, style)
-                .0;
-            let end_x = x.min(surface.area.right());
+            for (element, style) in [
+                (prefix.as_str(), prefix_style),
+                (name, base),
+                (modified.as_str(), base),
+                (" ", base),
+            ] {
+                let remaining = viewport.right().saturating_sub(x);
+                x = surface
+                    .set_stringn(x, viewport.y, element, remaining as usize, style)
+                    .0;
+                if x >= viewport.right() {
+                    break;
+                }
+            }
 
             self.bufferline_info
-                .add_buffer_info(doc.id(), start_x..end_x);
-
-            if x >= surface.area.right() {
+                .add_buffer_info(doc.id(), start_x..x.min(viewport.right()));
+            if x >= viewport.right() {
                 break;
             }
         }
