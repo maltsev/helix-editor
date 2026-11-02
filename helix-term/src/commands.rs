@@ -431,6 +431,8 @@ impl MappableCommand {
         goto_declaration, "Goto declaration",
         add_newline_above, "Add newline above",
         add_newline_below, "Add newline below",
+        move_lines_up, "Move current line selection up",
+        move_lines_down, "Move current line selection down",
         goto_type_definition, "Goto type definition",
         goto_implementation, "Goto implementation",
         goto_file_start, "Goto line number `<n>` else file start",
@@ -6811,6 +6813,81 @@ fn add_newline_impl(cx: &mut Context, open: Open) {
 
     let transaction = Transaction::change(text, changes);
     doc.apply(&transaction, view.id);
+}
+
+/// Move each group of selected lines past the adjacent unselected line.
+fn move_lines(cx: &mut Context, direction: Direction) {
+    let (view, doc) = current!(cx.editor);
+    let text = doc.text();
+    let slice = text.slice(..);
+    let selection = doc.selection(view.id);
+    let mut ranges = selection.ranges().iter().peekable();
+    let mut new_ranges = SmallVec::with_capacity(selection.len());
+    let mut changes = Vec::new();
+
+    // The empty line after a final line ending is not a line to swap with.
+    let last_line = text.len_lines() - 1;
+    let last_line = last_line.saturating_sub(usize::from(text.line(last_line).len_chars() == 0));
+
+    for (start, end) in selection.line_ranges(slice) {
+        let block_start = text.line_to_char(start);
+        let block_end = line_end_char_index(&slice, end);
+        let mut new_start = block_start;
+
+        let neighbor = match direction {
+            Direction::Backward if start > 0 && end <= last_line => Some(start - 1),
+            Direction::Forward if end < last_line => Some(end + 1),
+            _ => None,
+        };
+        if let Some(neighbor) = neighbor {
+            let neighbor_start = text.line_to_char(neighbor);
+            let neighbor_end = line_end_char_index(&slice, neighbor);
+            let block = slice.slice(block_start..block_end);
+            let adjacent = slice.slice(neighbor_start..neighbor_end);
+            let (from, to, replacement) = match direction {
+                Direction::Backward => {
+                    new_start = neighbor_start;
+                    let separator = slice.slice(neighbor_end..block_start);
+                    (
+                        neighbor_start,
+                        block_end,
+                        format!("{block}{separator}{adjacent}"),
+                    )
+                }
+                Direction::Forward => {
+                    let separator = slice.slice(block_end..neighbor_start);
+                    new_start += adjacent.len_chars() + separator.len_chars();
+                    (
+                        block_start,
+                        neighbor_end,
+                        format!("{adjacent}{separator}{block}"),
+                    )
+                }
+            };
+            // Leave the final line ending in place, including its absence at EOF.
+            changes.push((from, to, Some(replacement.into())));
+        }
+
+        while let Some(range) = ranges.next_if(|range| range.line_range(slice).0 <= end) {
+            let map = |pos: usize| (new_start + pos - block_start).min(text.len_chars());
+            new_ranges.push(Range::new(map(range.anchor), map(range.head)));
+        }
+    }
+
+    if changes.is_empty() {
+        return;
+    }
+    let transaction = Transaction::change(text, changes.into_iter())
+        .with_selection(Selection::new(new_ranges, selection.primary_index()));
+    doc.apply(&transaction, view.id);
+}
+
+fn move_lines_up(cx: &mut Context) {
+    move_lines(cx, Direction::Backward)
+}
+
+fn move_lines_down(cx: &mut Context) {
+    move_lines(cx, Direction::Forward)
 }
 
 enum IncrementDirection {

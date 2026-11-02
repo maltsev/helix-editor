@@ -98,9 +98,15 @@ Normal mode is the default mode when you launch helix. You can return to it from
 | `Alt-c`     | Change selection (delete and enter insert mode, without yanking)     | `change_selection_noyank` |
 | `Ctrl-a`    | Increment object (number) under cursor                               | `increment`               |
 | `Ctrl-x`    | Decrement object (number) under cursor                               | `decrement`               |
+| `Ctrl-k`    | Move selected lines up                                              | `move_lines_up`           |
+| `Ctrl-j`    | Move selected lines down                                            | `move_lines_down`         |
 | `Q`         | Start/stop macro recording to the selected register (experimental)   | `record_macro`            |
 | `q`         | Play back a recorded macro from the selected register (experimental) | `replay_macro`            |
 | `Ctrl-z`    | Suspend Helix and return to the shell (resume with `fg`)             | `suspend`                 |
+
+`Ctrl-k` and `Ctrl-j` move the full lines touched by each selection, preserving
+cursor positions within the moved text. Adjacent selected lines move as a block.
+These bindings also work in select mode.
 
 #### Shell
 
